@@ -25,7 +25,7 @@ DIST_ROOT := $(CURDIR)/output/dist
 KERNEL_arm := zImage
 KERNEL_aarch64 := Image
 BOOT_arm := u-boot.elf zynq_fsbl.elf
-BOOT_aarch64 := u-boot.elf zynqmp_fsbl.elf pmufw.elf bl31.elf
+BOOT_aarch64 := pmufw.elf u-boot.elf zynqmp_fsbl.elf pmufw.elf bl31.elf
 
 export CCACHEDIR
 export ROOTDIR
@@ -152,18 +152,28 @@ $$(PL_PROJ_$1): $$(BSP_TARGET_$1)
 	else \
 		echo 'CONFIG_SUBSYSTEM_REMOVE_PL_DTB=y' >> $$(PL_CONFIG_$1) ;\
 	fi
+	echo 'CONFIG_WATCHDOG=y' >> $$(PL_CONFIG_$1)
+	echo 'CONFIG_WATCHDOG_NOWAYOUT=y' >> $$(PL_CONFIG_$1)
+	echo 'CONFIG_XILINX_WATCHDOG=y' >> $$(PL_CONFIG_$1)
+	echo 'CONFIG_CADENCE_WATCHDOG=y' >> $$(PL_CONFIG_$1)
+	#echo 'CONFIG_YOCTO_BB_NO_NETWORK=y' >> $$(PL_CONFIG_$1)
+	echo 'CONFIG_YOCTO_NETWORK_SSTATE_FEEDS=n' >> $$(PL_CONFIG_$1)
+	echo 'CONFIG_YOCTO_LOCAL_SSTATE_FEEDS_URL="file:///home/farzam/petalinux/sstate_aarch64_2020.1/aarch64"' >> $$(PL_CONFIG_$1)
+	echo 'CONFIG_PRE_MIRROR_URL="file:///home/farzam/petalinux/sstate_aarch64_2020.1/downloads"' >> $$(PL_CONFIG_$1)
 	echo 'CONFIG_xrt=y' >> $$(PL_ROOTFS_CONFIG_$1)
 	echo 'CONFIG_xrt-dev=y' >> $$(PL_ROOTFS_CONFIG_$1)
 	echo 'CONFIG_zocl=y' >> $$(PL_ROOTFS_CONFIG_$1)
 	echo 'CONFIG_opencl-headers-dev=y' >> $$(PL_ROOTFS_CONFIG_$1)
 	echo 'CONFIG_opencl-clhpp-dev=y' >> $$(PL_ROOTFS_CONFIG_$1)
 	petalinux-config --silentconfig -p $$(PL_PROJ_$1)
+	sed -i -e 's/gitsm/git/g' $$(PL_PROJ_$1)/components/yocto/layers/meta-xilinx/meta-xilinx-bsp/recipes-devtools/qemu/qemu-xilinx.inc
+	#petalinux-build -x mrproper -p $$(PL_PROJ_$1)
 
 $$(BOOT_ROOT_$1)/BOOT.BIN : $$(BOOT_DEPENDS_$1) $$(BOOT_BITSTREAM_$1) | $$(BOOT_ROOT_$1)
 	cd $$(BOOT_ROOT_$1) && petalinux-package --boot --fpga $$(BITSTREAM_ABS_$1) --u-boot -p $$(PL_PROJ_$1) --force
 	cp -f $$(PL_PROJ_$1)/images/linux/BOOT.BIN $$(BOOT_ROOT_$1)
 
-$$(BOOT_ROOT_$1)/image.ub : $$(BUILD_ROOT_$1)/image.its $$(BUILD_ROOT_$1)/system.dtb $$(BUILD_ROOT_$1)/$$(KERNEL_$$(ARCH_$1)) | $$(BOOT_ROOT_$1)
+$$(BOOT_ROOT_$1)/image.ub : $$(BUILD_ROOT_$1)/image.its $$(BOOT_DEPENDS_$1) $$(BUILD_ROOT_$1)/system.dtb $$(BUILD_ROOT_$1)/$$(KERNEL_$$(ARCH_$1)) | $$(BOOT_ROOT_$1)
 	cd $$(BOOT_ROOT_$1) && mkimage -f $$(BUILD_ROOT_$1)/image.its $$@
 
 $$(BOOT_ROOT_$1)/boot.scr : $$(BOOT_DEPENDS_$1) | $$(BOOT_ROOT_$1)
@@ -365,6 +375,8 @@ checkenv: $(patsubst %, qemu_check_%, $(USED_ARCH))
 	which microblaze-xilinx-elf-gcc
 	which ct-ng
 	bash $(SCRIPT_DIR)/check_env.sh
+	echo $(BOOT_FILES)
+	echo $(IMAGE_FILES)
 
 boot_files: checkenv $(BOOT_FILES)
 
