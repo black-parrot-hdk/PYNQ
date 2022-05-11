@@ -33,6 +33,9 @@ export BUILD_ROOT
 export BB_ENV_EXTRAWHITE := PYNQ_BOARDNAME FPGA_MANAGER
 export SHELL
 
+$(SSTATE_DIR)/downloads $(SSTATE_DIR)/arm $(SSTATE_DIR)/aarch64:
+	@echo "$@ does not exist! Set correct SSTATE_DIR." && exit 1
+
 $(IMAGE_ROOT):
 	mkdir -p $@
 
@@ -139,7 +142,7 @@ PL_ENV_$1 := PYNQ_BOARDNAME=$1 FPGA_MANAGER=$$(FPGA_MANAGER_$1)
 
 BOOT_FILES_$1 := $$(BOOT_ROOT_$1)/image.ub $$(BOOT_ROOT_$1)/BOOT.BIN $$(BOOT_ROOT_$1)/boot.scr
 BOOT_DEPENDS_$1 := $$(patsubst %, $$(PL_PROJ_$1)/images/linux/%, $$(BOOT_$$(ARCH_$1)))
-$$(PL_PROJ_$1): $$(BSP_TARGET_$1)
+$$(PL_PROJ_$1): $$(BSP_TARGET_$1) | $(SSTATE_DIR)/$$(ARCH_$1) $(SSTATE_DIR)/downloads
 	-rm -rf $$(PL_PROJ_$1)
 	cd $$(BUILD_ROOT_$1) && petalinux-create -t project \
 		-s $$(BSP_BUILD_$1)/$$(BSP_PROJECT_$1).bsp -n petalinux_project
@@ -154,12 +157,20 @@ $$(PL_PROJ_$1): $$(BSP_TARGET_$1)
 	else \
 		echo 'CONFIG_SUBSYSTEM_REMOVE_PL_DTB=y' >> $$(PL_CONFIG_$1) ;\
 	fi
+	echo 'CONFIG_WATCHDOG=y' >> $$(PL_CONFIG_$1)
+	echo 'CONFIG_WATCHDOG_NOWAYOUT=y' >> $$(PL_CONFIG_$1)
+	echo 'CONFIG_XILINX_WATCHDOG=y' >> $$(PL_CONFIG_$1)
+	echo 'CONFIG_CADENCE_WATCHDOG=y' >> $$(PL_CONFIG_$1)
+	echo 'CONFIG_YOCTO_NETWORK_SSTATE_FEEDS=n' >> $$(PL_CONFIG_$1)
+	echo 'CONFIG_YOCTO_LOCAL_SSTATE_FEEDS_URL="file://$(abspath $(lastword $(SSTATE_DIR)))/$$(ARCH_$1)"' >> $$(PL_CONFIG_$1)
+	echo 'CONFIG_PRE_MIRROR_URL="file://$(abspath $(lastword $(SSTATE_DIR)))/downloads"' >> $$(PL_CONFIG_$1)
 	echo 'CONFIG_xrt=y' >> $$(PL_ROOTFS_CONFIG_$1)
 	echo 'CONFIG_xrt-dev=y' >> $$(PL_ROOTFS_CONFIG_$1)
 	echo 'CONFIG_zocl=y' >> $$(PL_ROOTFS_CONFIG_$1)
 	echo 'CONFIG_opencl-headers-dev=y' >> $$(PL_ROOTFS_CONFIG_$1)
 	echo 'CONFIG_opencl-clhpp-dev=y' >> $$(PL_ROOTFS_CONFIG_$1)
 	petalinux-config --silentconfig -p $$(PL_PROJ_$1)
+	sed -i -e 's/gitsm/git/g' $$(PL_PROJ_$1)/components/yocto/layers/meta-xilinx/meta-xilinx-bsp/recipes-devtools/qemu/qemu-xilinx.inc
 
 $$(BOOT_ROOT_$1)/BOOT.BIN : $$(BOOT_DEPENDS_$1) $$(BOOT_BITSTREAM_$1) | $$(BOOT_ROOT_$1)
 	cd $$(BOOT_ROOT_$1) && petalinux-package --boot --fpga $$(BITSTREAM_ABS_$1) --u-boot -p $$(PL_PROJ_$1) --force
@@ -235,6 +246,7 @@ $$(IMAGE_$1) : $$(BASE_PATH_$1) $$(STAGE4_DEPENDS_$1) $$(BOOT_FILES_$1) $$(MODUL
 	rm -rf $$(BUILD_ROOT_$1)/modules
 	rpm2cpio $$(KERNEL_RPM_$1) | sudo chroot $$(STAGING_$1) cpio -id
 	sudo chroot $$(STAGING_$1) depmod -a $$(LINUX_VERSION)
+	$$(SCRIPT_DIR)/ultra96v2_mods.sh $$(STAGING_$1)
 	$$(SCRIPT_DIR)/resize_umount.sh $$(IMAGE_$1) $$(STAGING_$1)
 
 
