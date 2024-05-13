@@ -2,8 +2,6 @@
 
 ![python](https://github.com/Xilinx/PYNQ/workflows/Python/badge.svg)
 
-For instructions on building a PYNQ image see [Image.md](Image.md).
-
 PYNQ is an open-source project from Xilinx that makes it easy to design embedded systems with Zynq All Programmable Systems on Chips (APSoCs). Using the Python language and libraries, designers can exploit the benefits of programmable logic and microprocessors in Zynq to build more capable and exciting embedded systems.
 PYNQ users can now create high performance embedded applications with
 -	parallel hardware execution
