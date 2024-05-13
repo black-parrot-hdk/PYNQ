@@ -1,0 +1,9 @@
+[Unit]
+Description=Watchdog timer heartbeat systemd service.
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /usr/bin/wdt-heartbeat.sh
+
+[Install]
+WantedBy=multi-user.target

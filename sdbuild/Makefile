@@ -33,9 +33,6 @@ export BUILD_ROOT
 export BB_ENV_EXTRAWHITE := PYNQ_BOARDNAME FPGA_MANAGER
 export SHELL
 
-$(SSTATE_DIR)/downloads $(SSTATE_DIR)/arm $(SSTATE_DIR)/aarch64:
-	@echo "$@ does not exist! Set correct SSTATE_DIR." && exit 1
-
 $(IMAGE_ROOT):
 	mkdir -p $@
 
@@ -105,6 +102,9 @@ endif
 ifeq ($$(ARCH_$1),aarch64)
 	TEMPLATE_$1 := zynqMP
 endif
+
+$(SSTATE_DIR)/downloads $(SSTATE_DIR)/$$(ARCH_$1):
+	@echo "$@ does not exist! Set correct SSTATE_DIR." && exit 1
 
 BSP_BUILD_$1 := $$(BUILD_ROOT_$1)/petalinux_bsp
 BSP_ABS_$1 := $$(patsubst %,$$(BOARDDIR_$1)/%,$$(BSP_$1))
@@ -246,7 +246,6 @@ $$(IMAGE_$1) : $$(BASE_PATH_$1) $$(STAGE4_DEPENDS_$1) $$(BOOT_FILES_$1) $$(MODUL
 	rm -rf $$(BUILD_ROOT_$1)/modules
 	rpm2cpio $$(KERNEL_RPM_$1) | sudo chroot $$(STAGING_$1) cpio -id
 	sudo chroot $$(STAGING_$1) depmod -a $$(LINUX_VERSION)
-	test -f $$(SCRIPT_DIR)/$1_mods.sh && $$(SCRIPT_DIR)/$1_mods.sh $$(STAGING_$1) || true
 	$$(SCRIPT_DIR)/resize_umount.sh $$(IMAGE_$1) $$(STAGING_$1)
 
 

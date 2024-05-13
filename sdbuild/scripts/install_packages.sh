@@ -6,23 +6,21 @@ set -x
 target=$1
 shift
 
-fss="proc run dev"
+$dry_run sudo mount --bind /dev $target/dev
+$dry_run sudo mount --bind /dev/pts $target/dev/pts
+$dry_run sudo mount --bind /proc $target/proc
+$dry_run sudo mount --bind /sys $target/sys
 
-
-for fs in $fss
-do
-  $dry_run sudo mount -o bind /$fs $target/$fs
-done
 mkdir -p $target/ccache
 sudo mount -o bind $CCACHEDIR $target/ccache
 
 function unmount_special() {
 
-# Unmount special files
-for fs in $fss
-do
-  $dry_run sudo umount -l $target/$fs
-done
+$dry_run sudo umount $target/sys
+$dry_run sudo umount $target/proc
+$dry_run sudo umount $target/dev/pts
+$dry_run sudo umount $target/dev
+
 sudo umount -l $target/ccache
 rmdir $target/ccache || true
 }
@@ -37,6 +35,16 @@ export CCACHE_MAXSIZE=15G
 export CCACHE_SLOPPINESS=file_macro,time_macros
 export CC=/usr/lib/ccache/gcc
 export CXX=/usr/lib/ccache/g++
+
+
+# Hardening of resolv.conf for 20.04 images over QEMU 5.2.0
+hostresolvfile=/etc/resolv.conf
+targetresolvfile=$target/etc/resolv.conf
+if [[ -L "$targetresolvfile" ]]; then
+    sudo mv $targetresolvfile ${targetresolvfile}.link
+    sudo cp -L $hostresolvfile $targetresolvfile
+fi
+
 
 for p in $@ 
 do
@@ -58,3 +66,9 @@ do
   fi
 done
 
+
+# Target resolv.conf back to linkfile
+if [[ ! -L "$targetresolvfile" ]]; then
+    sudo rm $targetresolvfile
+    sudo mv ${targetresolvfile}.link $targetresolvfile
+fi
